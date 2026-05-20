@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <!--
-      MOBILE CUBE — шаг 1/4: текст на 1 грани «Готовый продукт»
+      MOBILE CUBE — шаг 4/4: scroll-дуга камеры + лёгкий drift
       Тест: npm run dev → http://localhost:5173/mobile-cube/
     -->
     <style>
@@ -491,7 +491,7 @@
             'Дизайн и печатка', 'Боты и скрипты', 'AI-аватары',
         ];
         const FACE_ICONS = ['◆', '◼', '</>', '▣', '⬡', '◉'];
-        const TEXTURED_FACE_INDEX = 1; // back → «Готовый продукт»
+        const EMISSIVE = ['#00ff88', '#00ff88', '#00ccff', '#00ccff', '#ffffff', '#ffffff'];
 
         function createFaceTexture(index) {
             const TEX_SIZE = 256;
@@ -554,10 +554,10 @@
             return texture;
         }
 
-        function makeFaceMaterial(color, emissive, map = null) {
+        function makeFaceMaterial(emissive, map) {
             return new THREE.MeshStandardMaterial({
                 map,
-                color: map ? '#ffffff' : color,
+                color: '#ffffff',
                 emissive,
                 emissiveIntensity: 0.2,
                 metalness: 0.2,
@@ -566,14 +566,7 @@
             });
         }
 
-        const faceDefs = [
-            { color: '#1a1a2e', emissive: '#00ff88' },
-            { color: '#16162a', emissive: '#00ff88' },
-            { color: '#18182c', emissive: '#00ccff' },
-            { color: '#141428', emissive: '#00ccff' },
-            { color: '#1c1c30', emissive: '#ffffff' },
-            { color: '#121224', emissive: '#ffffff' },
-        ];
+        const faceDefs = EMISSIVE.map((emissive) => ({ emissive }));
 
         const faces = [];
         const targetTransforms = [
@@ -597,10 +590,10 @@
         ];
 
         await document.fonts.ready;
+        const faceTextures = Array.from({ length: 6 }, (_, i) => createFaceTexture(i));
 
         faceDefs.forEach((def, i) => {
-            const map = i === TEXTURED_FACE_INDEX ? createFaceTexture(i) : null;
-            const mesh = new THREE.Mesh(faceGeo, makeFaceMaterial(def.color, def.emissive, map));
+            const mesh = new THREE.Mesh(faceGeo, makeFaceMaterial(def.emissive, faceTextures[i]));
             mesh.position.set(...unfoldTransforms[i].pos);
             mesh.rotation.set(...unfoldTransforms[i].rot);
             mesh.userData = {
@@ -686,6 +679,7 @@
         }
 
         const clock = new THREE.Clock();
+        const cam = { x: 0, y: 2.5, z: 10, lx: 0, ly: 0, lz: 0 };
 
         function animate() {
             if (!running) return;
@@ -710,15 +704,44 @@
             ring1.rotation.z += dt * 0.25;
             ring2.rotation.z -= dt * 0.3;
             ring2.rotation.x += dt * 0.2;
-            cubeGroup.rotation.y += dt * progress * 0.4;
-            cubeGroup.rotation.x += dt * progress * 0.15;
+
+            // Вращение группы: spin при progress > dock-зоны, докрутка в (0,0,0) на hero
+            const DOCK_START = 0.12;
+            if (progress >= DOCK_START) {
+                cubeGroup.rotation.y += dt * progress * 0.4;
+                cubeGroup.rotation.x += dt * progress * 0.15;
+            } else {
+                const dockAmt = 1 - progress / DOCK_START;
+                const dockFollow = Math.min(dt * (3 + dockAmt * 9), 1);
+                cubeGroup.rotation.x += (0 - cubeGroup.rotation.x) * dockFollow;
+                cubeGroup.rotation.y += (0 - cubeGroup.rotation.y) * dockFollow;
+                cubeGroup.rotation.z += (0 - cubeGroup.rotation.z) * dockFollow;
+                if (progress < 0.004 && targetProgress < 0.01) {
+                    cubeGroup.rotation.set(0, 0, 0);
+                }
+            }
+
             particles.rotation.y += dt * 0.04;
             particles.rotation.x += dt * 0.03;
             particles.material.opacity = 0.2 + progress * 0.25;
 
-            camera.position.x = Math.sin(t * 0.25) * 1.2;
-            camera.position.y = 2.5 + Math.cos(t * 0.3) * 0.6;
-            camera.lookAt(0, 0, 0);
+            // scroll-дуга (как React mobile) + лёгкое «дыхание» по времени
+            const p = progress;
+            const angle = p * Math.PI * 0.9;
+            const tx = Math.sin(angle) * 3.5 + Math.sin(t * 0.25) * 0.35;
+            const ty = 2.5 + p * 2.5 + Math.cos(t * 0.3) * 0.25;
+            const tz = 10 - p * 2;
+            const tlx = 0, tly = 0.1, tlz = 0;
+            const camSpeed = 2.8;
+            const follow = Math.min(dt * camSpeed, 1);
+            cam.x += (tx - cam.x) * follow;
+            cam.y += (ty - cam.y) * follow;
+            cam.z += (tz - cam.z) * follow;
+            cam.lx += (tlx - cam.lx) * follow;
+            cam.ly += (tly - cam.ly) * follow;
+            cam.lz += (tlz - cam.lz) * follow;
+            camera.position.set(cam.x, cam.y, cam.z);
+            camera.lookAt(cam.lx, cam.ly, cam.lz);
 
             renderer.render(scene, camera);
         }
