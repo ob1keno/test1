@@ -503,7 +503,7 @@
 
         function makeFaceMaterial(color, emissive) {
             if (IS_MOBILE) {
-                return new THREE.MeshBasicMaterial({ color, side: THREE.FrontSide });
+                return new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
             }
             return new THREE.MeshStandardMaterial({
                 color,
@@ -559,19 +559,26 @@
             faces.push(mesh);
         });
 
-        let wireframe = null;
-        if (!IS_MOBILE) {
-            const edgeGeo = new THREE.BoxGeometry(cubeSize * 1.005, cubeSize * 1.005, cubeSize * 1.005);
-            wireframe = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({
-                color: '#00ff88', wireframe: true, transparent: true, opacity: 0.15, depthWrite: false,
-            }));
-            cubeGroup.add(wireframe);
-        }
+        const edgeGeo = new THREE.BoxGeometry(cubeSize * 1.005, cubeSize * 1.005, cubeSize * 1.005);
+        const wireframe = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({
+            color: '#00ff88',
+            wireframe: true,
+            transparent: true,
+            opacity: IS_MOBILE ? 0.42 : 0.15,
+            depthWrite: false,
+        }));
+        wireframe.renderOrder = 2;
+        cubeGroup.add(wireframe);
 
         const edgesGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize));
         const edgeLines = new THREE.LineSegments(edgesGeo, new THREE.LineBasicMaterial({
-            color: '#00ff88', transparent: true, opacity: IS_MOBILE ? 0.4 : 0.35, depthWrite: false,
+            color: '#00ff88',
+            transparent: !IS_MOBILE,
+            opacity: 1,
+            depthWrite: false,
         }));
+        edgeLines.renderOrder = 3;
+        if (IS_MOBILE) edgeLines.visible = false;
         cubeGroup.add(edgeLines);
 
         const ringSegments = IS_MOBILE ? 48 : 120;
@@ -673,8 +680,14 @@
                 }
             });
 
-            if (wireframe) wireframe.material.opacity = 0.04 + progress * 0.4;
-            edgeLines.material.opacity = (IS_MOBILE ? 0.12 : 0.08) + progress * 0.55;
+            if (wireframe) {
+                wireframe.material.opacity = IS_MOBILE
+                    ? 0.28 + progress * 0.62
+                    : 0.04 + progress * 0.4;
+            }
+            if (!IS_MOBILE) {
+                edgeLines.material.opacity = 0.08 + progress * 0.55;
+            }
             ring1.material.opacity = 0.08 + progress * 0.35;
             if (ring2) ring2.material.opacity = 0.05 + progress * 0.3;
 
