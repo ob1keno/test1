@@ -3,7 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Swarm — Развертка куба</title>
+    <meta name="description" content="Один AI-оркестратор вместо студии — лендинги, боты, деплой под ключ.">
+    <title>Один инженер вместо студии</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <!--
+      MOBILE CUBE — этап 1/3: база + контент + багфиксы (3D без изменений)
+      Тест: npm run dev → http://localhost:5173/mobile-cube/
+    -->
     <style>
         :root {
             --bg: #0a0a0f;
@@ -11,23 +20,22 @@
             --accent: #00ff88;
             --accent2: #00ccff;
             --text: #e0e0e0;
-            --dim: #666;
+            --dim: #777;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
 
         body {
             background: var(--bg);
             color: var(--text);
             font-family: 'JetBrains Mono', 'Courier New', monospace;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Загрузчик */
+        /* loader */
         #loader {
             position: fixed;
             inset: 0;
@@ -36,29 +44,20 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.5s, visibility 0.5s;
+            transition: opacity 0.6s, visibility 0.6s;
         }
-        #loader.hidden {
-            opacity: 0;
-            visibility: hidden;
-        }
+        #loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .loader-text {
             color: var(--accent);
-            font-size: 0.85rem;
-            letter-spacing: 3px;
-            animation: pulse 1.5s infinite;
+            font-size: 0.8rem;
+            letter-spacing: 4px;
+            animation: pulse 1.6s infinite;
         }
         @keyframes pulse {
-            0%,
-            100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.25;
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.25; }
         }
 
-        /* Canvas — поверх всего */
         #cube-canvas {
             position: fixed;
             top: 0;
@@ -69,14 +68,12 @@
             pointer-events: none;
         }
 
-        /* Контент */
-        .content {
-            position: relative;
-            z-index: 1;
-        }
+        .content { position: relative; z-index: 1; }
 
         .section {
+            position: relative;
             min-height: 100vh;
+            min-height: 100svh;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -85,26 +82,52 @@
             padding: 80px 24px;
         }
 
-        /* Хедер */
+        /* hero glass panel — как React, blur оставляем до этапа 2 */
+        .hero-intro {
+            position: relative;
+            z-index: 1;
+            max-width: 820px;
+            width: min(580px, 92vw);
+            padding: 22px 26px 26px;
+            border-radius: 12px;
+            background: rgba(8, 8, 14, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            box-shadow:
+                0 12px 56px rgba(0, 0, 0, 0.55),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .hero-eyebrow {
+            font-size: 0.87rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #888;
+            margin-bottom: 16px;
+        }
+
         .hero-title {
-            font-size: clamp(2.5rem, 8vw, 6rem);
+            font-size: clamp(1.965rem, 7vw, 3.5rem);
             font-weight: 700;
             letter-spacing: 2px;
             line-height: 1.1;
             color: #fff;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
+            text-shadow:
+                0 2px 20px rgba(0, 0, 0, 0.85),
+                0 0 60px rgba(0, 255, 136, 0.25);
         }
-        .hero-title .accent {
-            color: var(--accent);
-        }
-        .hero-sub {
-            font-size: 1rem;
-            color: var(--dim);
-            letter-spacing: 3px;
-            max-width: 500px;
+        .hero-title .accent { color: var(--accent); }
+
+        .hero-roles {
+            font-size: 0.78rem;
+            color: #999;
+            letter-spacing: 0.5px;
+            line-height: 1.8;
+            white-space: pre-line;
         }
 
-        /* Скролл-индикатор */
         .scroll-hint {
             position: absolute;
             bottom: 40px;
@@ -118,6 +141,8 @@
             font-size: 0.7rem;
             letter-spacing: 3px;
             animation: float 2.5s ease-in-out infinite;
+            z-index: 1;
+            text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
         }
         .scroll-hint .line {
             width: 1px;
@@ -125,87 +150,133 @@
             background: linear-gradient(to bottom, var(--accent), transparent);
         }
         @keyframes float {
-            0%,
-            100% {
-                transform: translateX(-50%) translateY(0);
-            }
-            50% {
-                transform: translateX(-50%) translateY(10px);
-            }
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(10px); }
         }
 
-        /* Карточки */
+        /* cards */
         .card {
-            background: rgba(17, 17, 24, 0.8);
-            backdrop-filter: blur(12px);
-            border: 1px solid #1a1a2e;
+            background: rgba(17, 17, 24, 0.7);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 16px;
-            padding: 40px 32px;
-            max-width: 550px;
+            padding: 40px 36px;
+            max-width: 560px;
             width: 90%;
-            transition: border-color 0.3s, box-shadow 0.3s;
-        }
-        .card:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 40px rgba(0, 255, 136, 0.06);
+            text-align: left;
+            transition: border-color 0.4s, box-shadow 0.4s;
         }
         .card-label {
             font-size: 0.7rem;
             letter-spacing: 4px;
             color: var(--accent);
-            margin-bottom: 12px;
+            margin-bottom: 14px;
             text-transform: uppercase;
         }
         .card-title {
-            font-size: 1.7rem;
+            font-size: clamp(1.4rem, 4vw, 1.8rem);
             font-weight: 600;
             color: #fff;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
+            line-height: 1.3;
         }
         .card-desc {
-            font-size: 0.85rem;
-            color: #999;
-            line-height: 1.7;
+            font-size: 0.9rem;
+            color: #aaa;
+            line-height: 1.75;
+            margin-bottom: 18px;
+        }
+        .card-desc:last-child { margin-bottom: 0; }
+
+        .hl-glow {
+            font-weight: 600;
+            color: #fff;
+            text-shadow:
+                0 0 8px rgba(0, 255, 136, 0.8),
+                0 0 20px rgba(0, 255, 136, 0.4);
+        }
+
+        /* proof grid */
+        .proof-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .proof-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: border-color 0.25s;
+        }
+        a.proof-item {
+            text-decoration: none;
+            color: inherit;
+        }
+        a.proof-item:active { border-color: rgba(0, 255, 136, 0.25); }
+        .proof-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .proof-name {
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: #e0e0e0;
+        }
+        .proof-tag {
+            font-size: 0.62rem;
+            color: #00cc88;
+            letter-spacing: 0.5px;
+            margin-left: auto;
+            text-align: right;
         }
 
         /* CTA */
         .cta-section {
-            text-align: center;
-            padding: 60px 24px 120px;
+            min-height: 100vh;
+            min-height: 100svh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 50px 24px 100px;
         }
         .cta-title {
-            font-size: 2rem;
+            font-size: clamp(1.6rem, 5vw, 2.2rem);
             color: #fff;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .cta-sub {
+            font-size: 0.9rem;
+            color: #999;
+            margin-bottom: 28px;
         }
         .cta-btn {
             display: inline-block;
             background: var(--accent);
             color: var(--bg);
             font-family: inherit;
-            font-size: 1rem;
-            font-weight: 600;
-            letter-spacing: 2px;
-            padding: 18px 44px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 16px 32px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             text-decoration: none;
-            transition: all 0.3s;
             text-transform: uppercase;
+            transition: box-shadow 0.3s, transform 0.3s;
         }
-        .cta-btn:hover {
+        .cta-btn:active {
+            transform: translateY(-2px);
             box-shadow: 0 0 45px rgba(0, 255, 136, 0.45);
-            transform: translateY(-3px);
-        }
-        .footer-note {
-            margin-top: 14px;
-            font-size: 0.7rem;
-            color: #555;
-            letter-spacing: 2px;
         }
 
-        /* Навигационные точки */
+        /* nav dots */
         .nav-dots {
             position: fixed;
             right: 20px;
@@ -221,125 +292,156 @@
             height: 8px;
             border-radius: 50%;
             background: #1a1a2e;
+            border: none;
+            padding: 0;
             cursor: pointer;
             transition: all 0.35s;
         }
         .nav-dot.active {
             background: var(--accent);
-            box-shadow: 0 0 14px var(--accent);
+            box-shadow: 0 0 16px var(--accent);
             transform: scale(1.6);
         }
 
         @media (max-width: 768px) {
-            .nav-dots {
-                right: 8px;
-                gap: 10px;
+            .section { padding: 60px 16px; }
+            .hero-intro {
+                width: 92vw;
+                padding: 22px 16px 24px;
             }
-            .nav-dot {
-                width: 6px;
-                height: 6px;
-            }
-            .card {
-                padding: 28px 20px;
-            }
+            .hero-title { font-size: clamp(1.6rem, 7vw, 2.4rem); }
+            .hero-eyebrow { font-size: 0.7rem; letter-spacing: 3px; }
+            .hero-roles { font-size: 0.68rem; }
+            .card { padding: 28px 18px; width: 100%; max-width: 100%; }
+            .card-title { font-size: 1.4rem; }
+            .card-desc { font-size: 0.82rem; }
+            .proof-grid { grid-template-columns: 1fr; }
+            .nav-dots { right: 8px; gap: 10px; }
+            .nav-dot { width: 6px; height: 6px; }
+            .scroll-hint { bottom: 28px; }
+            .scroll-hint .line { height: 28px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            .scroll-hint, .loader-text { animation: none; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Загрузчик -->
-    <div id="loader"><span class="loader-text">ИНИЦИАЛИЗАЦИЯ АГЕНТОВ...</span></div>
-
-    <!-- Three.js Canvas -->
+    <div id="loader"><span class="loader-text">ИНИЦИАЛИЗАЦИЯ...</span></div>
     <canvas id="cube-canvas"></canvas>
 
-    <!-- Навигация -->
-    <div class="nav-dots" id="navDots">
-        <div class="nav-dot active" data-index="0"></div>
-        <div class="nav-dot" data-index="1"></div>
-        <div class="nav-dot" data-index="2"></div>
-        <div class="nav-dot" data-index="3"></div>
-    </div>
+    <nav class="nav-dots" id="navDots" aria-label="Секции">
+        <button type="button" class="nav-dot active" data-index="0" aria-label="Главная"></button>
+        <button type="button" class="nav-dot" data-index="1" aria-label="Этап 1"></button>
+        <button type="button" class="nav-dot" data-index="2" aria-label="Этап 2"></button>
+        <button type="button" class="nav-dot" data-index="3" aria-label="Этап 3"></button>
+    </nav>
 
-    <!-- Контент -->
     <div class="content">
-        <!-- 1: Развертка -->
-        <section class="section" id="s0">
-            <h1 class="hero-title">AI<span class="accent">SWARM</span></h1>
-            <p class="hero-sub">
-                РАЗВЕРТКА ВОЗМОЖНОСТЕЙ<br>
-                ШЕСТЬ ГРАНЕЙ. ОДИН ИНЖЕНЕР.
-            </p>
-            <div class="scroll-hint">
+        <section class="section section-hero" id="s0">
+            <div class="hero-intro">
+                <div class="hero-eyebrow">НЕ СТУДИЯ</div>
+                <h1 class="hero-title">Коллективный<br><span class="accent">разум</span></h1>
+                <p class="hero-roles">дизайнер · разработчик · копирайтер
+маркетолог · SEO · аналитик · DevOps
+один человек — рой агентов</p>
+            </div>
+            <div class="scroll-hint" aria-hidden="true">
                 <span>СКРОЛЛЬ</span>
                 <div class="line"></div>
             </div>
         </section>
 
-        <!-- 2: Сборка -->
         <section class="section" id="s1">
             <div class="card">
-                <div class="card-label">▸ Грань 1–2</div>
-                <div class="card-title">Дизайн + Фронтенд</div>
+                <div class="card-label">▸ Этап 1</div>
+                <div class="card-title"><span class="hl-glow">СТОП.</span> Это не студия.</div>
                 <div class="card-desc">
-                    AI-агент α генерирует интерфейс. Адаптив, тёмная тема, микроанимации.
-                    Грани начинают смыкаться.
+                    Дизайнер, разработчик, маркетолог, DevOps — их нет в штате.
+                    Это <span class="hl-glow">AI-агенты.</span>
+                    Один человек с роем инструментов <span class="hl-glow">вместо команды.</span>
                 </div>
             </div>
         </section>
 
-        <!-- 3: Половина -->
         <section class="section" id="s2">
             <div class="card">
-                <div class="card-label">▸ Грань 3–4</div>
-                <div class="card-title">Бэкенд + База данных</div>
+                <div class="card-label">▸ Этап 2</div>
+                <div class="card-title">
+                    <span class="hl-glow">Скорость</span> стартапа.
+                    <span class="hl-glow">Качество</span> студии.
+                </div>
                 <div class="card-desc">
-                    Агент β строит API и структуры данных. Параллельно с фронтендом.
-                    Куб обретает форму.
+                    <span class="hl-glow">Ты</span> описываешь задачу —
+                    <span class="hl-glow">я</span> оркеструю агентов и выдаю
+                    <span class="hl-glow">результат.</span>
+                    Без брифов на 40 пунктов, без созвонов на час, без «передаём в следующий отдел».
+                    От идеи до запуска — <span class="hl-glow">дни, не месяцы.</span>
                 </div>
             </div>
         </section>
 
-        <!-- 4: Готово -->
         <section class="section" id="s3">
             <div class="card">
-                <div class="card-label">▸ Грань 5–6</div>
-                <div class="card-title">DevOps + Деплой</div>
+                <div class="card-label">▸ Этап 3</div>
+                <div class="card-title">Открываешь ссылку — оно работает.</div>
                 <div class="card-desc">
-                    Агент γ поднимает сервера, настраивает CI/CD.
-                    Куб собран. Продукт готов к запуску.
+                    Лендинг задеплоен. Бот отвечает. Домен привязан.
+                    Довожу до конца сам — без смены рук и потери контекста.
+                </div>
+                <div class="card-desc"><span class="hl-glow">Делаю под ключ:</span></div>
+                <div class="proof-grid">
+                    <a href="https://tribogatyrya.pro/" target="_blank" rel="noopener noreferrer" class="proof-item">
+                        <span class="proof-icon">🌐</span>
+                        <span class="proof-name">Продающий лендинг</span>
+                        <span class="proof-tag">сайт ↗</span>
+                    </a>
+                    <a href="https://xn--80ahmlaeald6c.xn--p1ai/" target="_blank" rel="noopener noreferrer" class="proof-item">
+                        <span class="proof-icon">🏛</span>
+                        <span class="proof-name">Музей в Казани</span>
+                        <span class="proof-tag">лендинг ↗</span>
+                    </a>
+                    <div class="proof-item">
+                        <span class="proof-icon">🤖</span>
+                        <span class="proof-name">TG-боты</span>
+                        <span class="proof-tag">сканеры · автоответы</span>
+                    </div>
+                    <div class="proof-item">
+                        <span class="proof-icon">📄</span>
+                        <span class="proof-name">Печать + PDF</span>
+                        <span class="proof-tag">буклеты · презентации</span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- CTA -->
         <div class="cta-section">
-            <div class="cta-title">Куб собран. Продукт готов.</div>
-            <a href="https://t.me/your_telegram" class="cta-btn" target="_blank">
-                ▸ ЗАПУСТИТЬ КОНВЕЙЕР
-            </a>
-            <div class="footer-note">ЛЮДИ НЕ ПОСТРАДАЛИ. ТОЛЬКО АГЕНТЫ.</div>
+            <div class="hero-intro">
+                <div class="cta-title">Твой проект — следующий.</div>
+                <div class="cta-sub">Напиши — отвечу сам.</div>
+                <a href="https://t.me/your_telegram" class="cta-btn" target="_blank" rel="noopener noreferrer">▸ НАПИСАТЬ AI-ОРКЕСТРАТОРУ</a>
+            </div>
         </div>
     </div>
 
-    <!-- Three.js Import Map -->
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-            }
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
         }
+    }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
 
-        // === DOM ===
         const canvas = document.getElementById('cube-canvas');
         const loader = document.getElementById('loader');
         const navDots = document.querySelectorAll('.nav-dot');
 
-        // === Сцена ===
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 2.5, 10);
@@ -351,7 +453,6 @@
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.3;
 
-        // === Освещение ===
         scene.add(new THREE.AmbientLight('#1a1a3a', 1.8));
         const sun = new THREE.DirectionalLight('#ffffff', 4);
         sun.position.set(5, 8, 6);
@@ -363,15 +464,11 @@
         fill.position.set(0, -3, 4);
         scene.add(fill);
 
-        // === Параметры куба ===
         const cubeSize = 2.4;
         const half = cubeSize / 2;
-
-        // === Группа для всего куба (вращается целиком) ===
         const cubeGroup = new THREE.Group();
         scene.add(cubeGroup);
 
-        // === 6 граней как PlaneGeometry ===
         const faceGeo = new THREE.PlaneGeometry(cubeSize, cubeSize);
 
         function makeFaceMaterial(color, emissive) {
@@ -386,109 +483,76 @@
         }
 
         const faceDefs = [
-            { name: 'front', color: '#1a1a2e', emissive: '#00ff88' },
-            { name: 'back', color: '#16162a', emissive: '#00ff88' },
-            { name: 'right', color: '#18182c', emissive: '#00ccff' },
-            { name: 'left', color: '#141428', emissive: '#00ccff' },
-            { name: 'top', color: '#1c1c30', emissive: '#ffffff' },
-            { name: 'bottom', color: '#121224', emissive: '#ffffff' },
+            { color: '#1a1a2e', emissive: '#00ff88' },
+            { color: '#16162a', emissive: '#00ff88' },
+            { color: '#18182c', emissive: '#00ccff' },
+            { color: '#141428', emissive: '#00ccff' },
+            { color: '#1c1c30', emissive: '#ffffff' },
+            { color: '#121224', emissive: '#ffffff' },
         ];
 
         const faces = [];
-
-        // Целевые позиции и повороты в собранном кубе (локально в cubeGroup)
         const targetTransforms = [
-            { pos: [0, 0, half], rot: [0, 0, 0] }, // front
-            { pos: [0, 0, -half], rot: [0, Math.PI, 0] }, // back
-            { pos: [half, 0, 0], rot: [0, Math.PI / 2, 0] }, // right
-            { pos: [-half, 0, 0], rot: [0, -Math.PI / 2, 0] }, // left
-            { pos: [0, half, 0], rot: [-Math.PI / 2, 0, 0] }, // top
-            { pos: [0, -half, 0], rot: [Math.PI / 2, 0, 0] }, // bottom
+            { pos: [0, 0, half], rot: [0, 0, 0] },
+            { pos: [0, 0, -half], rot: [0, Math.PI, 0] },
+            { pos: [half, 0, 0], rot: [0, Math.PI / 2, 0] },
+            { pos: [-half, 0, 0], rot: [0, -Math.PI / 2, 0] },
+            { pos: [0, half, 0], rot: [-Math.PI / 2, 0, 0] },
+            { pos: [0, -half, 0], rot: [Math.PI / 2, 0, 0] },
         ];
 
-        // ----- РАЗВЕРТКА (крест) на плоскости XY (z=0) -----
-        // Классическая раскладка:
-        //         [top]
-        // [left] [front] [right] [back]
-        //         [bottom]
         const gap = 0.3;
         const step = cubeSize + gap;
-
         const unfoldTransforms = [
-            { pos: [0, 0, 0], rot: [0, 0, 0] }, // front — центр
-            { pos: [step * 2, 0, 0], rot: [0, 0, 0] }, // back — справа от right
-            { pos: [step, 0, 0], rot: [0, 0, 0] }, // right
-            { pos: [-step, 0, 0], rot: [0, 0, 0] }, // left
-            { pos: [0, step, 0], rot: [0, 0, 0] }, // top — над front
-            { pos: [0, -step, 0], rot: [0, 0, 0] }, // bottom — под front
+            { pos: [0, 0, 0], rot: [0, 0, 0] },
+            { pos: [step * 2, 0, 0], rot: [0, 0, 0] },
+            { pos: [step, 0, 0], rot: [0, 0, 0] },
+            { pos: [-step, 0, 0], rot: [0, 0, 0] },
+            { pos: [0, step, 0], rot: [0, 0, 0] },
+            { pos: [0, -step, 0], rot: [0, 0, 0] },
         ];
 
         faceDefs.forEach((def, i) => {
-            const mat = makeFaceMaterial(def.color, def.emissive);
-            const mesh = new THREE.Mesh(faceGeo, mat);
-
-            // Старт — развертка
+            const mesh = new THREE.Mesh(faceGeo, makeFaceMaterial(def.color, def.emissive));
             mesh.position.set(...unfoldTransforms[i].pos);
             mesh.rotation.set(...unfoldTransforms[i].rot);
-
             mesh.userData = {
-                index: i,
-                name: def.name,
                 unfoldPos: [...unfoldTransforms[i].pos],
                 unfoldRot: [...unfoldTransforms[i].rot],
                 targetPos: [...targetTransforms[i].pos],
                 targetRot: [...targetTransforms[i].rot],
             };
-
             cubeGroup.add(mesh);
             faces.push(mesh);
         });
 
-        // === Рёбра (wireframe box) ===
         const edgeGeo = new THREE.BoxGeometry(cubeSize * 1.005, cubeSize * 1.005, cubeSize * 1.005);
-        const edgeMat = new THREE.MeshBasicMaterial({
-            color: '#00ff88',
-            wireframe: true,
-            transparent: true,
-            opacity: 0.15,
-            depthWrite: false,
-        });
-        const wireframe = new THREE.Mesh(edgeGeo, edgeMat);
+        const wireframe = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({
+            color: '#00ff88', wireframe: true, transparent: true, opacity: 0.15, depthWrite: false,
+        }));
         cubeGroup.add(wireframe);
 
-        // === Подсветка рёбер (линии) ===
         const edgesGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize));
-        const lineMat = new THREE.LineBasicMaterial({
-            color: '#00ff88',
-            transparent: true,
-            opacity: 0.35,
-            depthWrite: false,
-        });
-        const edgeLines = new THREE.LineSegments(edgesGeo, lineMat);
+        const edgeLines = new THREE.LineSegments(edgesGeo, new THREE.LineBasicMaterial({
+            color: '#00ff88', transparent: true, opacity: 0.35, depthWrite: false,
+        }));
         cubeGroup.add(edgeLines);
 
-        // === Орбитальные кольца ===
         function createRing(radius, opacity) {
-            const g = new THREE.TorusGeometry(radius, 0.006, 16, 120);
-            const m = new THREE.MeshBasicMaterial({
-                color: '#00ff88',
-                transparent: true,
-                opacity,
-                depthWrite: false,
-            });
-            return new THREE.Mesh(g, m);
+            const mesh = new THREE.Mesh(
+                new THREE.TorusGeometry(radius, 0.006, 16, 120),
+                new THREE.MeshBasicMaterial({ color: '#00ff88', transparent: true, opacity, depthWrite: false })
+            );
+            return mesh;
         }
         const ring1 = createRing(cubeSize * 0.75, 0.2);
         ring1.rotation.x = Math.PI / 2;
         cubeGroup.add(ring1);
-
         const ring2 = createRing(cubeSize * 0.9, 0.15);
         ring2.rotation.x = Math.PI / 3;
         ring2.rotation.y = Math.PI / 5;
         cubeGroup.add(ring2);
 
-        // === Фоновые частицы ===
-        const particlesGeo = new THREE.BufferGeometry();
         const pCount = 500;
         const pPositions = new Float32Array(pCount * 3);
         for (let i = 0; i < pCount; i++) {
@@ -496,92 +560,72 @@
             pPositions[i * 3 + 1] = (Math.random() - 0.5) * 12;
             pPositions[i * 3 + 2] = (Math.random() - 0.5) * 10;
         }
+        const particlesGeo = new THREE.BufferGeometry();
         particlesGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
-        const particlesMat = new THREE.PointsMaterial({
-            size: 0.018,
-            color: '#00ff88',
-            transparent: true,
-            opacity: 0.35,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-        });
-        const particles = new THREE.Points(particlesGeo, particlesMat);
+        const particles = new THREE.Points(particlesGeo, new THREE.PointsMaterial({
+            size: 0.018, color: '#00ff88', transparent: true, opacity: 0.35,
+            blending: THREE.AdditiveBlending, depthWrite: false,
+        }));
         scene.add(particles);
 
-        // === Состояние ===
-        let progress = 0; // 0 = развертка, 1 = куб
+        let progress = 0;
         let targetProgress = 0;
+        let running = true;
 
-        // === Скролл ===
         function onScroll() {
             const h = document.body.scrollHeight - window.innerHeight;
             targetProgress = Math.min(Math.max(window.scrollY / Math.max(h, 1), 0), 1);
-
             const active = Math.round(targetProgress * (navDots.length - 1));
-            navDots.forEach((d, i) => d.classList.toggle('active', i === active));
+            navDots.forEach((d, i) => {
+                d.classList.toggle('active', i === active);
+                d.setAttribute('aria-current', i === active ? 'true' : 'false');
+            });
         }
 
-        // === Клик по точкам ===
         navDots.forEach(dot => {
             dot.addEventListener('click', () => {
-                const idx = parseInt(dot.dataset.index);
-                const frac = idx / (navDots.length - 1);
+                const idx = parseInt(dot.dataset.index, 10);
                 const h = document.body.scrollHeight - window.innerHeight;
-                window.scrollTo({ top: frac * h, behavior: 'smooth' });
+                window.scrollTo({ top: (idx / (navDots.length - 1)) * h, behavior: 'smooth' });
             });
         });
 
-        // === Утилиты ===
         function lerp(a, b, t) { return a + (b - a) * t; }
-
         function lerpV3(a, b, t) {
             return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
         }
 
-        // === Анимация ===
         const clock = new THREE.Clock();
 
         function animate() {
+            if (!running) return;
             requestAnimationFrame(animate);
 
             const dt = Math.min(clock.getDelta(), 0.1);
             const t = performance.now() * 0.001;
 
-            // Плавное следование за скроллом
             progress = lerp(progress, targetProgress, dt * 2.8);
 
-            // Анимируем грани
             faces.forEach(face => {
                 const { unfoldPos, unfoldRot, targetPos, targetRot } = face.userData;
-                const pos = lerpV3(unfoldPos, targetPos, progress);
-                const rot = lerpV3(unfoldRot, targetRot, progress);
-
-                face.position.set(...pos);
-                face.rotation.set(...rot);
+                face.position.set(...lerpV3(unfoldPos, targetPos, progress));
+                face.rotation.set(...lerpV3(unfoldRot, targetRot, progress));
                 face.material.emissiveIntensity = 0.1 + progress * 0.55;
             });
 
-            // Wireframe и рёбра
             wireframe.material.opacity = 0.04 + progress * 0.4;
             edgeLines.material.opacity = 0.08 + progress * 0.55;
-
-            // Кольца
             ring1.material.opacity = 0.08 + progress * 0.35;
             ring2.material.opacity = 0.05 + progress * 0.3;
             ring1.rotation.z += dt * 0.25;
             ring2.rotation.z -= dt * 0.3;
             ring2.rotation.x += dt * 0.2;
-
-            // Вращение всей группы при сборке
             cubeGroup.rotation.y += dt * progress * 0.4;
             cubeGroup.rotation.x += dt * progress * 0.15;
-
-            // Частицы
             particles.rotation.y += dt * 0.04;
             particles.rotation.x += dt * 0.03;
             particles.material.opacity = 0.2 + progress * 0.25;
 
-            // Камера
             camera.position.x = Math.sin(t * 0.25) * 1.2;
             camera.position.y = 2.5 + Math.cos(t * 0.3) * 0.6;
             camera.lookAt(0, 0, 0);
@@ -589,23 +633,29 @@
             renderer.render(scene, camera);
         }
 
-        // === Ресайз ===
-        window.addEventListener('resize', () => {
+        function onResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                running = false;
+            } else {
+                running = true;
+                clock.getDelta();
+                animate();
+            }
         });
 
-        // === Старт ===
         window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onResize, { passive: true });
         onScroll();
         animate();
 
-        setTimeout(() => loader.classList.add('hidden'), 700);
-
-        console.log('%c📦 AI Swarm %cРазвертка → Куб',
-            'color:#00ff88;font-size:1.2rem;', 'color:#ccc;');
-        console.log('%c6 граней складываются в продукт', 'color:#888;');
+        setTimeout(() => loader.classList.add('hidden'), 800);
     </script>
 </body>
 </html>
