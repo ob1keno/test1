@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <!--
-      MOBILE CUBE — этап 2/3: mobile perf (легче GPU + CSS без blur)
+      MOBILE CUBE — этап 2: CSS без blur; 3D = рабочий исходник (stage 1)
       Тест: npm run dev → http://localhost:5173/mobile-cube/
     -->
     <style>
@@ -453,46 +453,31 @@
     <script type="module">
         import * as THREE from 'three';
 
-        const IS_MOBILE = window.innerWidth <= 768;
         const canvas = document.getElementById('cube-canvas');
         const loader = document.getElementById('loader');
         const navDots = document.querySelectorAll('.nav-dot');
-
-        function getPixelRatio() {
-            if (IS_MOBILE) return 1;
-            return Math.min(window.devicePixelRatio, 2);
-        }
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 2.5, 10);
         camera.lookAt(0, 0, 0);
 
-        const renderer = new THREE.WebGLRenderer({
-            canvas,
-            antialias: !IS_MOBILE,
-            alpha: true,
-            powerPreference: 'high-performance',
-        });
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(getPixelRatio());
-        if (!IS_MOBILE) {
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.3;
-        }
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.3;
 
-        if (!IS_MOBILE) {
-            scene.add(new THREE.AmbientLight('#1a1a3a', 1.8));
-            const sun = new THREE.DirectionalLight('#ffffff', 4);
-            sun.position.set(5, 8, 6);
-            scene.add(sun);
-            const rim = new THREE.DirectionalLight('#00ff88', 3);
-            rim.position.set(-4, -2, -4);
-            scene.add(rim);
-            const fill = new THREE.DirectionalLight('#00ccff', 1.5);
-            fill.position.set(0, -3, 4);
-            scene.add(fill);
-        }
+        scene.add(new THREE.AmbientLight('#1a1a3a', 1.8));
+        const sun = new THREE.DirectionalLight('#ffffff', 4);
+        sun.position.set(5, 8, 6);
+        scene.add(sun);
+        const rim = new THREE.DirectionalLight('#00ff88', 3);
+        rim.position.set(-4, -2, -4);
+        scene.add(rim);
+        const fill = new THREE.DirectionalLight('#00ccff', 1.5);
+        fill.position.set(0, -3, 4);
+        scene.add(fill);
 
         const cubeSize = 2.4;
         const half = cubeSize / 2;
@@ -502,9 +487,6 @@
         const faceGeo = new THREE.PlaneGeometry(cubeSize, cubeSize);
 
         function makeFaceMaterial(color, emissive) {
-            if (IS_MOBILE) {
-                return new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
-            }
             return new THREE.MeshStandardMaterial({
                 color,
                 emissive,
@@ -559,47 +541,37 @@
             faces.push(mesh);
         });
 
-        const edgeGeo = new THREE.BoxGeometry(cubeSize * 1.005, cubeSize * 1.005, cubeSize * 1.005);
-        const wireframe = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({
-            color: '#00ff88',
-            wireframe: true,
-            transparent: true,
-            opacity: IS_MOBILE ? 0.42 : 0.15,
-            depthWrite: false,
-        }));
-        wireframe.renderOrder = 2;
+        const wireframe = new THREE.Mesh(
+            new THREE.BoxGeometry(cubeSize * 1.005, cubeSize * 1.005, cubeSize * 1.005),
+            new THREE.MeshBasicMaterial({
+                color: '#00ff88', wireframe: true, transparent: true, opacity: 0.15, depthWrite: false,
+            })
+        );
         cubeGroup.add(wireframe);
 
-        const edgesGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize));
-        const edgeLines = new THREE.LineSegments(edgesGeo, new THREE.LineBasicMaterial({
-            color: '#00ff88',
-            transparent: !IS_MOBILE,
-            opacity: 1,
-            depthWrite: false,
-        }));
-        edgeLines.renderOrder = 3;
-        if (IS_MOBILE) edgeLines.visible = false;
+        const edgeLines = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize)),
+            new THREE.LineBasicMaterial({
+                color: '#00ff88', transparent: true, opacity: 0.35, depthWrite: false,
+            })
+        );
         cubeGroup.add(edgeLines);
 
-        const ringSegments = IS_MOBILE ? 48 : 120;
         function createRing(radius, opacity) {
             return new THREE.Mesh(
-                new THREE.TorusGeometry(radius, 0.006, 8, ringSegments),
+                new THREE.TorusGeometry(radius, 0.006, 16, 120),
                 new THREE.MeshBasicMaterial({ color: '#00ff88', transparent: true, opacity, depthWrite: false })
             );
         }
-        const ring1 = createRing(cubeSize * 0.75, IS_MOBILE ? 0.18 : 0.2);
+        const ring1 = createRing(cubeSize * 0.75, 0.2);
         ring1.rotation.x = Math.PI / 2;
         cubeGroup.add(ring1);
-        let ring2 = null;
-        if (!IS_MOBILE) {
-            ring2 = createRing(cubeSize * 0.9, 0.15);
-            ring2.rotation.x = Math.PI / 3;
-            ring2.rotation.y = Math.PI / 5;
-            cubeGroup.add(ring2);
-        }
+        const ring2 = createRing(cubeSize * 0.9, 0.15);
+        ring2.rotation.x = Math.PI / 3;
+        ring2.rotation.y = Math.PI / 5;
+        cubeGroup.add(ring2);
 
-        const pCount = IS_MOBILE ? 120 : 500;
+        const pCount = 500;
         const pPositions = new Float32Array(pCount * 3);
         for (let i = 0; i < pCount; i++) {
             pPositions[i * 3] = (Math.random() - 0.5) * 16;
@@ -609,23 +581,16 @@
         const particlesGeo = new THREE.BufferGeometry();
         particlesGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
         const particles = new THREE.Points(particlesGeo, new THREE.PointsMaterial({
-            size: IS_MOBILE ? 0.022 : 0.018,
-            color: '#00ff88',
-            transparent: true,
-            opacity: IS_MOBILE ? 0.28 : 0.35,
-            blending: IS_MOBILE ? THREE.NormalBlending : THREE.AdditiveBlending,
-            depthWrite: false,
+            size: 0.018, color: '#00ff88', transparent: true, opacity: 0.35,
+            blending: THREE.AdditiveBlending, depthWrite: false,
         }));
         scene.add(particles);
 
         let progress = 0;
         let targetProgress = 0;
         let running = true;
-        let lastScrollAt = performance.now();
-        let frameIdx = 0;
 
         function onScroll() {
-            lastScrollAt = performance.now();
             const h = document.body.scrollHeight - window.innerHeight;
             targetProgress = Math.min(Math.max(window.scrollY / Math.max(h, 1), 0), 1);
             const active = Math.round(targetProgress * (navDots.length - 1));
@@ -637,7 +602,6 @@
 
         navDots.forEach(dot => {
             dot.addEventListener('click', () => {
-                lastScrollAt = performance.now();
                 const idx = parseInt(dot.dataset.index, 10);
                 const h = document.body.scrollHeight - window.innerHeight;
                 window.scrollTo({ top: (idx / (navDots.length - 1)) * h, behavior: 'smooth' });
@@ -651,23 +615,12 @@
 
         const clock = new THREE.Clock();
 
-        function isSceneActive() {
-            const scrolling = performance.now() - lastScrollAt < 180;
-            const lerping = Math.abs(progress - targetProgress) > 0.0015;
-            return scrolling || lerping;
-        }
-
         function animate() {
             if (!running) return;
             requestAnimationFrame(animate);
 
-            frameIdx += 1;
             const dt = Math.min(clock.getDelta(), 0.1);
             const t = performance.now() * 0.001;
-            const active = isSceneActive();
-
-            // mobile: 30fps когда idle — камера статична, кольца не крутятся
-            if (IS_MOBILE && !active && frameIdx % 2 !== 0) return;
 
             progress = lerp(progress, targetProgress, dt * 2.8);
 
@@ -675,47 +628,25 @@
                 const { unfoldPos, unfoldRot, targetPos, targetRot } = face.userData;
                 face.position.set(...lerpV3(unfoldPos, targetPos, progress));
                 face.rotation.set(...lerpV3(unfoldRot, targetRot, progress));
-                if (!IS_MOBILE && face.material.emissiveIntensity !== undefined) {
-                    face.material.emissiveIntensity = 0.1 + progress * 0.55;
-                }
+                face.material.emissiveIntensity = 0.1 + progress * 0.55;
             });
 
-            if (wireframe) {
-                wireframe.material.opacity = IS_MOBILE
-                    ? 0.28 + progress * 0.62
-                    : 0.04 + progress * 0.4;
-            }
-            if (!IS_MOBILE) {
-                edgeLines.material.opacity = 0.08 + progress * 0.55;
-            }
+            wireframe.material.opacity = 0.04 + progress * 0.4;
+            edgeLines.material.opacity = 0.08 + progress * 0.55;
             ring1.material.opacity = 0.08 + progress * 0.35;
-            if (ring2) ring2.material.opacity = 0.05 + progress * 0.3;
+            ring2.material.opacity = 0.05 + progress * 0.3;
+            ring1.rotation.z += dt * 0.25;
+            ring2.rotation.z -= dt * 0.3;
+            ring2.rotation.x += dt * 0.2;
+            cubeGroup.rotation.y += dt * progress * 0.4;
+            cubeGroup.rotation.x += dt * progress * 0.15;
+            particles.rotation.y += dt * 0.04;
+            particles.rotation.x += dt * 0.03;
+            particles.material.opacity = 0.2 + progress * 0.25;
 
-            if (!IS_MOBILE || active) {
-                ring1.rotation.z += dt * 0.25;
-                if (ring2) {
-                    ring2.rotation.z -= dt * 0.3;
-                    ring2.rotation.x += dt * 0.2;
-                }
-            }
-
-            cubeGroup.rotation.y += dt * progress * (IS_MOBILE ? 0.28 : 0.4);
-            cubeGroup.rotation.x += dt * progress * (IS_MOBILE ? 0.1 : 0.15);
-
-            if (!IS_MOBILE || active) {
-                particles.rotation.y += dt * 0.04;
-                particles.rotation.x += dt * 0.03;
-            }
-            particles.material.opacity = (IS_MOBILE ? 0.16 : 0.2) + progress * 0.25;
-
-            if (IS_MOBILE) {
-                camera.position.set(0, 2.5, 10);
-                camera.lookAt(0, 0, 0);
-            } else {
-                camera.position.x = Math.sin(t * 0.25) * 1.2;
-                camera.position.y = 2.5 + Math.cos(t * 0.3) * 0.6;
-                camera.lookAt(0, 0, 0);
-            }
+            camera.position.x = Math.sin(t * 0.25) * 1.2;
+            camera.position.y = 2.5 + Math.cos(t * 0.3) * 0.6;
+            camera.lookAt(0, 0, 0);
 
             renderer.render(scene, camera);
         }
@@ -724,7 +655,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(getPixelRatio());
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         }
 
         document.addEventListener('visibilitychange', () => {
