@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <!--
-      MOBILE CUBE — этап 2: CSS без blur; 3D = рабочий исходник (stage 1)
+      MOBILE CUBE — шаг 1/4: текст на 1 грани «Готовый продукт»
       Тест: npm run dev → http://localhost:5173/mobile-cube/
     -->
     <style>
@@ -486,13 +486,82 @@
 
         const faceGeo = new THREE.PlaneGeometry(cubeSize, cubeSize);
 
-        function makeFaceMaterial(color, emissive) {
+        const FACE_LABELS = [
+            'Твоя задача', 'Готовый продукт', 'Код и деплой',
+            'Дизайн и печатка', 'Боты и скрипты', 'AI-аватары',
+        ];
+        const FACE_ICONS = ['◆', '◼', '</>', '▣', '⬡', '◉'];
+        const TEXTURED_FACE_INDEX = 1; // back → «Готовый продукт»
+
+        function createFaceTexture(index) {
+            const TEX_SIZE = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = TEX_SIZE;
+            canvas.height = TEX_SIZE;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#151520';
+            ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+            ctx.strokeStyle = 'rgba(0, 255, 136, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(4, 4, TEX_SIZE - 8, TEX_SIZE - 8);
+            ctx.strokeStyle = 'rgba(0, 255, 136, 0.1)';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(12, 12, TEX_SIZE - 24, TEX_SIZE - 24);
+
+            ctx.fillStyle = '#00ff88';
+            ctx.font = 'bold 32px "JetBrains Mono", "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(FACE_ICONS[index], TEX_SIZE / 2, TEX_SIZE * 0.38);
+
+            ctx.fillStyle = '#cccccc';
+            ctx.font = '14px "JetBrains Mono", "Courier New", monospace';
+            ctx.fillText(FACE_LABELS[index], TEX_SIZE / 2, TEX_SIZE * 0.62);
+
+            ctx.strokeStyle = 'rgba(0, 255, 136, 0.3)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(TEX_SIZE * 0.25, TEX_SIZE * 0.5);
+            ctx.lineTo(TEX_SIZE * 0.75, TEX_SIZE * 0.5);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.font = '8px "JetBrains Mono", "Courier New", monospace';
+            ctx.fillText('AI MODULE', TEX_SIZE / 2, TEX_SIZE * 0.82);
+
+            const cs = 10, cg = 20;
+            ctx.strokeStyle = 'rgba(0, 255, 136, 0.5)';
+            ctx.lineWidth = 1;
+            [
+                [cg, cg + cs, cg, cg, cg + cs, cg],
+                [TEX_SIZE - cg - cs, cg, TEX_SIZE - cg, cg, TEX_SIZE - cg, cg + cs],
+                [cg, TEX_SIZE - cg - cs, cg, TEX_SIZE - cg, cg + cs, TEX_SIZE - cg],
+                [TEX_SIZE - cg, TEX_SIZE - cg - cs, TEX_SIZE - cg, TEX_SIZE - cg, TEX_SIZE - cg - cs, TEX_SIZE - cg],
+            ].forEach(([x1, y1, x2, y2, x3, y3]) => {
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.lineTo(x3, y3);
+                ctx.stroke();
+            });
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
+            return texture;
+        }
+
+        function makeFaceMaterial(color, emissive, map = null) {
             return new THREE.MeshStandardMaterial({
-                color,
+                map,
+                color: map ? '#ffffff' : color,
                 emissive,
                 emissiveIntensity: 0.2,
-                metalness: 0.25,
-                roughness: 0.55,
+                metalness: 0.2,
+                roughness: 0.6,
                 side: THREE.DoubleSide,
             });
         }
@@ -527,8 +596,11 @@
             { pos: [0, -step, 0], rot: [0, 0, 0] },
         ];
 
+        await document.fonts.ready;
+
         faceDefs.forEach((def, i) => {
-            const mesh = new THREE.Mesh(faceGeo, makeFaceMaterial(def.color, def.emissive));
+            const map = i === TEXTURED_FACE_INDEX ? createFaceTexture(i) : null;
+            const mesh = new THREE.Mesh(faceGeo, makeFaceMaterial(def.color, def.emissive, map));
             mesh.position.set(...unfoldTransforms[i].pos);
             mesh.rotation.set(...unfoldTransforms[i].rot);
             mesh.userData = {
